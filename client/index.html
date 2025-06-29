@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, intital-scale=1">
+        <title>Messaging app</title>
+    </head>
+    <body>
+        <script type="text/javascript">
+            let ws = null;
+            let src_userid = null;
+            let dest_userid = null;
+
+            function encrypt(message) {
+                // encryption not yet implemented
+                return message;
+            }
+
+            function decrypt(message) {
+                // encryption not yet implemented
+                return message;
+            }
+
+            function receive_message(data) {
+                let message_container = document.createElement('div');
+
+                let message_data = JSON.parse(data);
+                message_container.innerText = message_data['src_userid'] + ': ' + decrypt(message_data['message']);
+                document.getElementById('message_history').appendChild(message_container);
+            }
+
+            function open_websocket() {
+                let host = document.getElementById('server_ip_writing_box').value;
+                let port = 19125;
+                let address = 'ws://' + host + ':' + port;
+                ws = new WebSocket(address);
+                ws.addEventListener("message", (e) => {
+                    receive_message(e.data);
+                });
+            }
+
+            function set_userid() {
+                src_userid = document.getElementById('userid_writing_box').value;
+            }
+
+            function select_conversation() {
+                dest_userid = document.getElementById('conversation_selection_writing_box').value;
+            }
+
+            function send_message() {
+                if (!ws || !src_userid) {
+                    alert('Please connect to a server, log in and select a conversation.');
+                    return;
+                }
+                let message_json = JSON.stringify({
+                    dest_userid: dest_userid,
+                    src_userid: src_userid,
+                    message: encrypt(document.getElementById('message_writing_box').value)
+                });
+                ws.send(message_json);
+            }
+
+            function check_if_13(e, callnext) {
+                if (e.keyCode == 13) {
+                    callnext();
+                }
+            }
+        </script>
+        <div id="server_setup">
+            <input type="text" id="server_ip_writing_box" onkeydown="check_if_13(e, open_websocket)">
+            <button onclick="open_websocket()">Connect to server</button>
+        </div>
+        <div id="user_login">
+            <input type="text" id="userid_writing_box" onkeydown="check_if_13(e, set_userid)">
+            <button onclick="set_userid()">Set userid</button>
+        </div>
+        <div id="conversation_selection">
+            <input type="text" id="conversation_selection_writing_box" onkeydown="check_if_13(e, select_conversation)">
+            <button onclick="select_conversation()">Select conversation</button>
+        </div>
+        <div id="message_history"></div>
+        <div id="message_writing">
+            <input type="text" id="message_writing_box" onkeydown="check_if_13(e, send_message)">
+            <button onclick="send_message()">Send</button>
+        </div>
+    </body>
+</html>
