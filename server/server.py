@@ -2,6 +2,7 @@ import websockets.exceptions
 import websockets.server
 import asyncio
 import json
+import datetime
 
 user_ids_to_websockets = {}
 message_history = []
@@ -10,11 +11,12 @@ async def encrypt_message(message):
     # XXX encryption not implemented yet
     return message
 
-async def send_message(dest_user_id, src_user_id, message_text, save=True):
+async def send_message(dest_user_id, src_user_id, message_text, timestamp, save=True):
     message_dict = {
         'dest_userid': dest_user_id,
         'src_userid': src_user_id,
-        'message': message_text
+        'message': message_text,
+        'timestamp': timestamp
     }
 
     # save messages here, so that they aren't lost if the recipiant is offline
@@ -42,10 +44,11 @@ async def forward_message(websocket):
                 dest_user_id = message_dict['dest_userid']
                 src_user_id = message_dict['src_userid']
                 message_text = message_dict['message']
+                timestamp = message_dict['timestamp']
             except json.decoder.JSONDecodeError or KeyError:
                 # send an error message back to the sender
                 error_user_id = user_ids_to_websockets.keys()[user_ids_to_websockets.values().index(websocket)]
-                await send_message(error_user_id, 'error_msgs', encrypt_message('Error: Your message was corrupted or formatted incorrectly'))
+                await send_message(error_user_id, 'error_msgs', encrypt_message('Error: Your message was corrupted or formatted incorrectly'), datetime.datetime.now(datetime.timezone.utc).isoformat())
                 return
 
             # handle new connections
@@ -59,10 +62,10 @@ async def forward_message(websocket):
                 # forward the user's messages to their new connection
                 for msg_backup in message_history:
                     if msg_backup['dest_userid'] == src_user_id or msg_backup['src_userid'] == src_user_id:
-                        await send_message(src_user_id, msg_backup['src_userid'], msg_backup['message'], save=False)
+                        await send_message(src_user_id, msg_backup['src_userid'], msg_backup['message'], msg_backup['timestamp'], save=False)
 
             # forward the message
-            await send_message(dest_user_id, src_user_id, message_text)
+            await send_message(dest_user_id, src_user_id, message_text, timestamp)
     except websockets.exceptions.ConnectionClosedError:
         pass
 

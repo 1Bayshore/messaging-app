@@ -71,7 +71,7 @@
                 let message_container = document.createElement('div');
 
                 let message_data = JSON.parse(data);
-                message_container.innerText = message_data['src_userid'] + ': ' + decrypt(message_data['message']);
+                message_container.innerText = message_data['src_userid'] + ' (' + message_data['timestamp'] + '): ' + decrypt(message_data['message']);
                 document.getElementById('message_history').appendChild(message_container);
             }
 
@@ -125,11 +125,13 @@
                     alert('Please select a recipient.');
                     return;
                 }
-                
+
+                let timestamp =  new Date().toISOString();
                 let message_json = JSON.stringify({
                     dest_userid: dest_userid,
                     src_userid: src_userid,
-                    message: encrypt(document.getElementById('message_writing_box').value)
+                    message: encrypt(document.getElementById('message_writing_box').value),
+                    timestamp: timestamp
                 });
                 ws.send(message_json);
                 receive_message(message_json); // this ensures that it appears as sent.
