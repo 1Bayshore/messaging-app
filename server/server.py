@@ -11,6 +11,10 @@ async def encrypt_message(message):
     # XXX encryption not implemented yet
     return message
 
+async def decrypt_message(message):
+    # XXX encryption not implemented yet
+    return message
+
 async def send_message(dest_user_id, src_user_id, message_text, timestamp, type='message', save=True, forwarding_dest_user_id=None):
     message_dict = {
         'dest_userid': forwarding_dest_user_id if forwarding_dest_user_id else dest_user_id,
@@ -55,10 +59,15 @@ async def forward_message(websocket):
                 # send an error message back to the sender
                 error_user_id = user_ids_to_websockets.keys()[list(user_ids_to_websockets.values()).index(websocket)]
                 await send_message(error_user_id, 'error_msgs', encrypt_message('Error: Your message was corrupted or formatted incorrectly'), datetime.datetime.now(datetime.timezone.utc).isoformat(), 'error')
-                return
+                continue
 
             # handle new connections
             if websocket not in [x for xs in user_ids_to_websockets.values() for x in xs]:
+                # confirm this is a valid handshake, rather than an impersonation
+                if message_type != 'ping':
+                    # impersonation, drop it
+                    continue
+
                 # check if the user is already connected once to avoid overwriting
                 try:
                     user_ids_to_websockets[src_user_id].append(websocket)
