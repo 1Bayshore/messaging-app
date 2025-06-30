@@ -207,6 +207,12 @@
                 let message_container = document.createElement('div');
                 
                 let message_data = JSON.parse(data);
+
+                if (message_data['type'] == 'ping') {
+                    // ping is just to confirm connection, drop it
+                    return;
+                }
+
                 if (message_data['src_userid'] == src_userid) {
                     message_container.classList.add('from' + message_data['dest_userid']);
                     if (message_data['dest_userid'] != dest_userid) {
@@ -292,16 +298,20 @@
 
                 let timestamp =  new Date().toISOString();
                 let encrypted_message;
+                let message_type;
                 if (type == "ping") {
                     encrypted_message = encrypt('Connected.');
+                    message_type = 'ping';
                 } else {
                     encrypted_message = encrypt(document.getElementById('message_writing_box').value);
+                    message_type = 'message';
                 }
                 let message_json = JSON.stringify({
                     dest_userid: dest_userid,
                     src_userid: src_userid,
                     message: encrypted_message,
-                    timestamp: timestamp
+                    timestamp: timestamp,
+                    type: message_type
                 });
                 ws.send(message_json);
                 receive_message(message_json); // this ensures that it appears as sent.

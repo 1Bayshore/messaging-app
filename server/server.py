@@ -11,17 +11,19 @@ async def encrypt_message(message):
     # XXX encryption not implemented yet
     return message
 
-async def send_message(dest_user_id, src_user_id, message_text, timestamp, save=True, forwarding_dest_user_id=None):
+async def send_message(dest_user_id, src_user_id, message_text, timestamp, type='message', save=True, forwarding_dest_user_id=None):
     message_dict = {
         'dest_userid': forwarding_dest_user_id if forwarding_dest_user_id else dest_user_id,
         'src_userid': src_user_id,
+        'type': type,
         'message': message_text,
         'timestamp': timestamp
     }
 
     # save messages here, so that they aren't lost if the recipiant is offline
     # exception is if the save flag is set to false, for situations when the message is already saved
-    if save:
+    # or if the message is a ping, which we don't save
+    if save and (type != 'ping'):
         message_history.append(message_dict)
 
     # forward the message if possible
@@ -46,12 +48,13 @@ async def forward_message(websocket):
                 message_dict = json.loads(message_str)
                 dest_user_id = message_dict['dest_userid']
                 src_user_id = message_dict['src_userid']
+                message_type = message_dict['type']
                 message_text = message_dict['message']
                 timestamp = message_dict['timestamp']
-            except json.decoder.JSONDecodeError or KeyError:
+            except (json.decoder.JSONDecodeError, KeyError):
                 # send an error message back to the sender
-                error_user_id = user_ids_to_websockets.keys()[user_ids_to_websockets.values().index(websocket)]
-                await send_message(error_user_id, 'error_msgs', encrypt_message('Error: Your message was corrupted or formatted incorrectly'), datetime.datetime.now(datetime.timezone.utc).isoformat())
+                error_user_id = user_ids_to_websockets.keys()[list(user_ids_to_websockets.values()).index(websocket)]
+                await send_message(error_user_id, 'error_msgs', encrypt_message('Error: Your message was corrupted or formatted incorrectly'), datetime.datetime.now(datetime.timezone.utc).isoformat(), 'error')
                 return
 
             # handle new connections
@@ -65,10 +68,10 @@ async def forward_message(websocket):
                 # forward the user's messages to their new connection
                 for msg_backup in message_history:
                     if msg_backup['dest_userid'] == src_user_id or msg_backup['src_userid'] == src_user_id:
-                        await send_message(src_user_id, msg_backup['src_userid'], msg_backup['message'], msg_backup['timestamp'], save=False, forwarding_dest_user_id=msg_backup['dest_userid'])
+                        await send_message(src_user_id, msg_backup['src_userid'], msg_backup['message'], msg_backup['timestamp'], msg_backup['type'], save=False, forwarding_dest_user_id=msg_backup['dest_userid'])
 
             # forward the message
-            await send_message(dest_user_id, src_user_id, message_text, timestamp)
+            await send_message(dest_user_id, src_user_id, message_text, timestamp, message_type)
     except websockets.exceptions.ConnectionClosedError:
         pass
 
