@@ -6,6 +6,23 @@
         <title>Messaging app</title>
     </head>
     <body>
+        <div id="server_setup">
+            <input type="text" id="server_ip_writing_box">
+            <button onclick="open_websocket()">Connect to server</button>
+        </div>
+        <div id="user_login">
+            <input type="text" id="userid_writing_box">
+            <button onclick="set_userid()">Set userid</button>
+        </div>
+        <div id="conversation_selection">
+            <input type="text" id="conversation_selection_writing_box">
+            <button onclick="select_conversation()">Select conversation</button>
+        </div>
+        <div id="message_history"></div>
+        <div id="message_writing">
+            <input type="text" id="message_writing_box">
+            <button onclick="send_message()">Send</button>
+        </div>
         <script type="text/javascript">
             let ws = null;
             let src_userid = null;
@@ -29,14 +46,30 @@
                 document.getElementById('message_history').appendChild(message_container);
             }
 
-            function open_websocket() {
+            function open_websocket(trynum=0) {
+                if (trynum > 5) {
+                    alert('Cannot connect to websocket');
+                    return;
+                }
                 let host = document.getElementById('server_ip_writing_box').value;
                 let port = 19125;
                 let address = 'ws://' + host + ':' + port;
-                ws = new WebSocket(address);
-                ws.addEventListener("message", (e) => {
-                    receive_message(e.data);
-                });
+                try {
+                    ws.close();
+                } catch {
+                    
+                }
+                try {
+                    ws = new WebSocket(address);
+                    ws.addEventListener("message", (e) => {
+                        receive_message(e.data);
+                    });
+                    ws.addEventListener("close", (e) => {
+                        setTimeout(open_websocket, 1000, trynum++);
+                    });
+                } catch {
+                    setTimeout(open_websocket, 1000, trynum++);
+                }
             }
 
             function set_userid() {
@@ -58,30 +91,28 @@
                     message: encrypt(document.getElementById('message_writing_box').value)
                 });
                 ws.send(message_json);
+                receive_message(message_json); // this ensures that it appears as sent.
+                document.getElementById('message_writing_box').value = "";
             }
 
-            function check_if_13(e, callnext) {
-                if (e.keyCode == 13) {
+            function check_if_enter(e, callnext) {
+                if (e.code == "Enter") {
                     callnext();
                 }
             }
+
+            document.getElementById('server_ip_writing_box').onkeydown = (e) => {
+                check_if_enter(e, open_websocket);
+            };
+            document.getElementById('userid_writing_box').onkeydown = (e) => {
+                check_if_enter(e, set_userid);
+            };
+            document.getElementById('conversation_selection_writing_box').onkeydown = (e) => {
+                check_if_enter(e, select_conversation);
+            };
+            document.getElementById('message_writing_box').onkeydown = (e) => {
+                check_if_enter(e, send_message);
+            };
         </script>
-        <div id="server_setup">
-            <input type="text" id="server_ip_writing_box" onkeydown="check_if_13(e, open_websocket)">
-            <button onclick="open_websocket()">Connect to server</button>
-        </div>
-        <div id="user_login">
-            <input type="text" id="userid_writing_box" onkeydown="check_if_13(e, set_userid)">
-            <button onclick="set_userid()">Set userid</button>
-        </div>
-        <div id="conversation_selection">
-            <input type="text" id="conversation_selection_writing_box" onkeydown="check_if_13(e, select_conversation)">
-            <button onclick="select_conversation()">Select conversation</button>
-        </div>
-        <div id="message_history"></div>
-        <div id="message_writing">
-            <input type="text" id="message_writing_box" onkeydown="check_if_13(e, send_message)">
-            <button onclick="send_message()">Send</button>
-        </div>
     </body>
 </html>
