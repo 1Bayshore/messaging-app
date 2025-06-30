@@ -4,6 +4,8 @@ import asyncio
 import json
 import datetime
 
+server_address = '127.0.0.1'
+
 user_ids_to_websockets = {}
 message_history = []
 
@@ -58,7 +60,7 @@ async def forward_message(websocket):
             except (json.decoder.JSONDecodeError, KeyError):
                 # send an error message back to the sender
                 error_user_id = user_ids_to_websockets.keys()[list(user_ids_to_websockets.values()).index(websocket)]
-                await send_message(error_user_id, 'error_msgs', encrypt_message('Error: Your message was corrupted or formatted incorrectly'), datetime.datetime.now(datetime.timezone.utc).isoformat(), 'error')
+                await send_message(error_user_id, server_address, encrypt_message('Error: Your message was corrupted or formatted incorrectly'), datetime.datetime.now(datetime.timezone.utc).isoformat(), 'error')
                 continue
 
             # handle new connections
@@ -86,7 +88,7 @@ async def forward_message(websocket):
 
 
 async def main():
-    async with websockets.server.serve(forward_message, '0.0.0.0', 19125) as server:
+    async with websockets.server.serve(forward_message, server_address, 19125) as server:
         await server.serve_forever()
 
 try:
