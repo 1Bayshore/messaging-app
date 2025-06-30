@@ -234,7 +234,7 @@
                 display_screen('chat');
             }
 
-            function send_message() {
+            function send_message(type="message") {
                 if (!ws) {
                     alert('Please connect to a server.');
                     return;
@@ -249,10 +249,16 @@
                 }
 
                 let timestamp =  new Date().toISOString();
+                let encrypted_message;
+                if (type == "ping") {
+                    encrypted_message = encrypt('Connected.');
+                } else {
+                    encrypted_message = encrypt(document.getElementById('message_writing_box').value);
+                }
                 let message_json = JSON.stringify({
                     dest_userid: dest_userid,
                     src_userid: src_userid,
-                    message: encrypt(document.getElementById('message_writing_box').value),
+                    message: encrypted_message,
                     timestamp: timestamp
                 });
                 ws.send(message_json);
@@ -287,6 +293,7 @@
                     document.getElementById('conversation_selection_writing_box').value = last_conversation;
                     select_conversation();
                 }
+                send_message(type="ping");
             }
 
             document.getElementById('server_ip_writing_box').onkeydown = (e) => {

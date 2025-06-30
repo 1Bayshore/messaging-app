@@ -35,6 +35,9 @@ async def send_message(dest_user_id, src_user_id, message_text, timestamp, save=
     except KeyError:
         pass # user is not online
 
+    with open('message_history.json', 'w') as f:
+        f.write(json.dumps(message_history))
+
 async def forward_message(websocket):
     try:
         async for message_str in websocket:
