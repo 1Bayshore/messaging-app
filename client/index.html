@@ -40,6 +40,10 @@
                 top: 0%;
                 left: 0%;
                 z-index: 0;
+                text-align: center;
+                font-size: 40px;
+                color: rgb(255, 212, 132);
+                font-family: 'Fuzzy Bubbles', 'Comic Sans MS', cursive;
             }
 
             #preconversation {
@@ -66,13 +70,27 @@
             #status_indicators {
                 position: fixed;
                 right: 5%;
-                top: 5%;
+                top: 20px;
                 z-index: -1;
+            }
+
+            #conversation_selection {
+                position: absolute;
+                left: 8px;
+                top: 70px;
+                width: max(30%, 250px);
+            }
+
+            #message_in_out_container {
+                position: absolute;
+                left: calc(max(30%, 250px) + 8px);
+                top: 70px;
+                width: calc(70% - 8px);
             }
         </style>
     </head>
     <body>
-        <div id="background_blockout"></div>
+        <div id="background_blockout">Messaging app</div>
         <div class="menu">
             <button onclick="display_menu()" id="menu_button">Menu</button>
             <div id="menu_items" class="hidden">
@@ -99,10 +117,12 @@
             <input type="text" id="conversation_selection_writing_box">
             <button onclick="select_conversation()">Select conversation</button>
         </div>
-        <div id="message_history" class="hidden"></div>
-        <div id="message_writing" class="hidden">
-            <input type="text" id="message_writing_box">
-            <button onclick="send_message()">Send</button>
+        <div id="message_in_out_container">
+            <div id="message_history" class="hidden"></div>
+            <div id="message_writing" class="hidden">
+                <input type="text" id="message_writing_box">
+                <button onclick="send_message()">Send</button>
+            </div>
         </div>
         <script type="text/javascript">
             // Cookie handing code, from https://www.w3schools.com/js/js_cookies.asp
@@ -161,17 +181,20 @@
                 if (screen == 'conversation_selection') {
                     document.getElementById('background_blockout').classList.add('hidden');
                     document.getElementById('conversation_selection').classList.remove('hidden');
-                } else {
-                    document.getElementById('conversation_selection').classList.add('hidden');
                 }
 
                 if (screen == 'chat') {
                     document.getElementById('background_blockout').classList.add('hidden');
+                    document.getElementById('conversation_selection').classList.remove('hidden');
                     document.getElementById('message_history').classList.remove('hidden');
                     document.getElementById('message_writing').classList.remove('hidden');
                 } else {
                     document.getElementById('message_history').classList.add('hidden');
                     document.getElementById('message_writing').classList.add('hidden');
+                }
+
+                if (screen != 'chat' && screen != 'conversation_selection') {
+                    document.getElementById('conversation_selection').classList.add('hidden');
                 }
             }
 
@@ -182,8 +205,20 @@
 
             function receive_message(data) {
                 let message_container = document.createElement('div');
-
+                
                 let message_data = JSON.parse(data);
+                if (message_data['src_userid'] == src_userid) {
+                    message_container.classList.add('from' + message_data['dest_userid']);
+                    if (message_data['dest_userid'] != dest_userid) {
+                        message_container.classList.add('hidden');
+                    }
+                } else {
+                    message_container.classList.add('from' + message_data['src_userid']);
+                    if (message_data['src_userid'] != dest_userid) {
+                        message_container.classList.add('hidden');
+                    }
+                }
+                message_container.classList.add('message');
                 message_container.innerText = message_data['src_userid'] + ' (' + message_data['timestamp'] + '): ' + decrypt(message_data['message']);
                 document.getElementById('message_history').appendChild(message_container);
             }
@@ -231,7 +266,14 @@
             function select_conversation() {
                 dest_userid = document.getElementById('conversation_selection_writing_box').value;
                 setCookie('last_conversation', dest_userid, 30);
+                for (let j = 0; j < document.getElementsByClassName('message').length; j++) {
+                    document.getElementsByClassName('message')[j].classList.add('hidden');
+                }
+                for (let i = 0; i < document.getElementsByClassName('from' + dest_userid).length; i++) {
+                    document.getElementsByClassName('from' + dest_userid)[i].classList.remove('hidden');
+                }
                 display_screen('chat');
+                send_message(type="ping");
             }
 
             function send_message(type="message") {
@@ -293,7 +335,6 @@
                     document.getElementById('conversation_selection_writing_box').value = last_conversation;
                     select_conversation();
                 }
-                send_message(type="ping");
             }
 
             document.getElementById('server_ip_writing_box').onkeydown = (e) => {

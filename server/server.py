@@ -11,9 +11,9 @@ async def encrypt_message(message):
     # XXX encryption not implemented yet
     return message
 
-async def send_message(dest_user_id, src_user_id, message_text, timestamp, save=True):
+async def send_message(dest_user_id, src_user_id, message_text, timestamp, save=True, forwarding_dest_user_id=None):
     message_dict = {
-        'dest_userid': dest_user_id,
+        'dest_userid': forwarding_dest_user_id if forwarding_dest_user_id else dest_user_id,
         'src_userid': src_user_id,
         'message': message_text,
         'timestamp': timestamp
@@ -65,7 +65,7 @@ async def forward_message(websocket):
                 # forward the user's messages to their new connection
                 for msg_backup in message_history:
                     if msg_backup['dest_userid'] == src_user_id or msg_backup['src_userid'] == src_user_id:
-                        await send_message(src_user_id, msg_backup['src_userid'], msg_backup['message'], msg_backup['timestamp'], save=False)
+                        await send_message(src_user_id, msg_backup['src_userid'], msg_backup['message'], msg_backup['timestamp'], save=False, forwarding_dest_user_id=msg_backup['dest_userid'])
 
             # forward the message
             await send_message(dest_user_id, src_user_id, message_text, timestamp)
