@@ -62,6 +62,13 @@
                 position: relative;
                 z-index: 1;
             }
+
+            #status_indicators {
+                position: fixed;
+                right: 5%;
+                top: 5%;
+                z-index: -1;
+            }
         </style>
     </head>
     <body>
@@ -73,6 +80,11 @@
                 <button onclick="display_screen('server_setup')">Select a different server</button>
             </div>
         </div>
+        <div id="status_indicators">
+            <span id="userid_display"></span>
+            &nbsp;
+            <span id="connection_status">Disconnected</span>
+        </div>
         <div id="preconversation">
             <div id="server_setup" class="hidden">
                 <input type="text" id="server_ip_writing_box">
@@ -80,7 +92,7 @@
             </div>
             <div id="user_login" class="hidden">
                 <input type="text" id="userid_writing_box">
-                <button onclick="set_userid()">Set userid</button>
+                <button onclick="set_userid()">Log in</button>
             </div>
         </div>
         <div id="conversation_selection" class="hidden">
@@ -196,9 +208,11 @@
                             receive_message(e.data);
                         });
                         ws.addEventListener("close", (e) => {
+                            document.getElementById('connection_status').innerText = 'Disconnected';
                             setTimeout(open_websocket, 1000, trynum++);
                         });
                         setCookie('server_ip', host, 365);
+                        document.getElementById('connection_status').innerText = 'Connected';
                         display_screen('login');
                         finishSyncLoad();
                     }
@@ -209,6 +223,7 @@
 
             function set_userid() {
                 src_userid = document.getElementById('userid_writing_box').value;
+                document.getElementById('userid_display').innerText = src_userid;
                 setCookie('userid', src_userid, 30);
                 display_screen('conversation_selection');
             }
