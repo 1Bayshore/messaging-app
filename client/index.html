@@ -8,23 +8,87 @@
             .hidden {
                 display: none;
             }
+
+            body {
+                font-family: Verdana, Geneva, Tahoma, sans-serif;
+                font-size: 12pt;
+                color: black;
+            }
+
+            input {
+                font: inherit;
+                border: 1px solid grey;
+                border-radius: 10px;
+            }
+
+            button {
+                font: inherit;
+                border: 1px solid grey;
+                border-radius: 10px;
+                background-color: rgb(255, 212, 132);
+            }
+
+            button:active {
+                background-color: rgb(208, 173, 108);
+            }
+
+            #background_blockout {
+                position: fixed;
+                background-color: grey;
+                width: 100%;
+                height: 100%;
+                top: 0%;
+                left: 0%;
+                z-index: 0;
+            }
+
+            #preconversation {
+                width: 100%;
+                top: 49%;
+                text-align: center;
+                z-index: 1;
+                position: fixed;
+            }
+
+            #menu_items {
+                text-align: center;
+                width: 100%;
+                top: 49%;
+                z-index: 1;
+                position: fixed;
+            }
+
+            #menu_button {
+                position: relative;
+                z-index: 1;
+            }
         </style>
     </head>
     <body>
-        <div id="server_setup">
-            <input type="text" id="server_ip_writing_box">
-            <button onclick="open_websocket()">Connect to server</button>
+        <div id="background_blockout"></div>
+        <div class="menu">
+            <button onclick="display_menu()" id="menu_button">Menu</button>
+            <div id="menu_items" class="hidden">
+                <button onclick="display_screen('login')">Log out</button>
+                <button onclick="display_screen('server_setup')">Select a different server</button>
+            </div>
         </div>
-        <div id="user_login">
-            <input type="text" id="userid_writing_box">
-            <button onclick="set_userid()">Set userid</button>
+        <div id="preconversation">
+            <div id="server_setup" class="hidden">
+                <input type="text" id="server_ip_writing_box">
+                <button onclick="open_websocket()">Connect to server</button>
+            </div>
+            <div id="user_login" class="hidden">
+                <input type="text" id="userid_writing_box">
+                <button onclick="set_userid()">Set userid</button>
+            </div>
         </div>
-        <div id="conversation_selection">
+        <div id="conversation_selection" class="hidden">
             <input type="text" id="conversation_selection_writing_box">
             <button onclick="select_conversation()">Select conversation</button>
         </div>
-        <div id="message_history"></div>
-        <div id="message_writing">
+        <div id="message_history" class="hidden"></div>
+        <div id="message_writing" class="hidden">
             <input type="text" id="message_writing_box">
             <button onclick="send_message()">Send</button>
         </div>
@@ -67,6 +131,43 @@
                 return message;
             }
 
+            function display_screen(screen) {
+                document.getElementById('background_blockout').classList.remove('hidden');
+                document.getElementById('menu_items').classList.add('hidden');
+                if (screen == "server_setup") {
+                    document.getElementById('server_setup').classList.remove('hidden');
+                } else {
+                    document.getElementById('server_setup').classList.add('hidden');
+                }
+
+                if (screen == "login") {
+                    document.getElementById('user_login').classList.remove('hidden');
+                } else {
+                    document.getElementById('user_login').classList.add('hidden');
+                }
+
+                if (screen == 'conversation_selection') {
+                    document.getElementById('background_blockout').classList.add('hidden');
+                    document.getElementById('conversation_selection').classList.remove('hidden');
+                } else {
+                    document.getElementById('conversation_selection').classList.add('hidden');
+                }
+
+                if (screen == 'chat') {
+                    document.getElementById('background_blockout').classList.add('hidden');
+                    document.getElementById('message_history').classList.remove('hidden');
+                    document.getElementById('message_writing').classList.remove('hidden');
+                } else {
+                    document.getElementById('message_history').classList.add('hidden');
+                    document.getElementById('message_writing').classList.add('hidden');
+                }
+            }
+
+            function display_menu() {
+                document.getElementById('background_blockout').classList.toggle('hidden');
+                document.getElementById('menu_items').classList.toggle('hidden');
+            }
+
             function receive_message(data) {
                 let message_container = document.createElement('div');
 
@@ -90,13 +191,17 @@
                 }
                 try {
                     ws = new WebSocket(address);
-                    ws.addEventListener("message", (e) => {
-                        receive_message(e.data);
-                    });
-                    ws.addEventListener("close", (e) => {
-                        setTimeout(open_websocket, 1000, trynum++);
-                    });
-                    setCookie('server_ip', host, 365);
+                    ws.onopen = function() {
+                        ws.addEventListener("message", (e) => {
+                            receive_message(e.data);
+                        });
+                        ws.addEventListener("close", (e) => {
+                            setTimeout(open_websocket, 1000, trynum++);
+                        });
+                        setCookie('server_ip', host, 365);
+                        display_screen('login');
+                        finishSyncLoad();
+                    }
                 } catch {
                     setTimeout(open_websocket, 1000, trynum++);
                 }
@@ -105,11 +210,13 @@
             function set_userid() {
                 src_userid = document.getElementById('userid_writing_box').value;
                 setCookie('userid', src_userid, 30);
+                display_screen('conversation_selection');
             }
 
             function select_conversation() {
                 dest_userid = document.getElementById('conversation_selection_writing_box').value;
                 setCookie('last_conversation', dest_userid, 30);
+                display_screen('chat');
             }
 
             function send_message() {
@@ -150,6 +257,9 @@
                     document.getElementById('server_ip_writing_box').value = server_address;
                     open_websocket();
                 }
+            }
+            
+            function finishSyncLoad() {
 
                 let userid = getCookie('userid');
                 if (userid) {
@@ -177,6 +287,7 @@
                 check_if_enter(e, send_message);
             };
             
+            display_screen('server_setup');
             loadSavedUserData();
         </script>
     </body>
