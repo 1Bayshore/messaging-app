@@ -79,6 +79,7 @@
                 left: 8px;
                 top: 70px;
                 width: max(30%, 250px);
+                z-index: -2;
             }
 
             #message_in_out_container {
@@ -86,6 +87,7 @@
                 left: calc(max(30%, 250px) + 8px);
                 top: 70px;
                 width: calc(70% - 8px);
+                z-index: -2;
             }
         </style>
     </head>
@@ -110,6 +112,9 @@
             </div>
             <div id="user_login" class="hidden">
                 <input type="text" id="userid_writing_box">
+                <br>
+                <input type="password" id="password_writing_box">
+                <br>
                 <button onclick="set_userid()">Log in</button>
             </div>
         </div>
@@ -124,7 +129,8 @@
                 <button onclick="send_message()">Send</button>
             </div>
         </div>
-        <script type="text/javascript">
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/argon2-browser/1.18.0/argon2-bundled.min.js" integrity="sha512-Alrh8vbmKDc5xiq7I/y8LTDwy9nw1nT9S/yR73HMMoWrpX4S1kizNPdWM896c/CDIGILNwAiaih627A94kRhYQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+        <script type="text/javascript">            
             // Cookie handing code, from https://www.w3schools.com/js/js_cookies.asp
             function setCookie(cname, cvalue, exdays) {
                 const d = new Date();
@@ -148,10 +154,46 @@
                 return "";
             }
 
+            // Password hashing code, from https://hashing.mojoauth.com/argon2-in-javascript-in-browser/
+
+            // Importing the argon2 library
+            // Function to hash a password
+            
+            async function hashPassword(password) {
+                try {
+                    const hash = await argon2.hash({
+                        pass: password,
+                        salt: window.crypto.getRandomValues(new Uint8Array(16)), // Generate a secure random salt
+                        time: 2, // Time cost
+                        mem: 65536, // Memory cost in KB
+                        parallelism: 1, // Number of parallel threads
+                        hashLen: 32, // Length of the hash
+                        type: 'argon2id' // Using Argon2id variant
+                    });
+                    return hash.encoded; // Return the encoded hash
+                } catch (error) {
+                    console.error('Hashing failed:', error);
+                }
+            }
+
+            // Function to verify the password
+            async function verifyPassword(storedHash, password) {
+                try {
+                    const isMatch = await argon2.verify({
+                        pass: password,
+                        encoded: storedHash // The encoded hash for comparison
+                    });
+                    return isMatch; // Returns true if the password matches, false otherwise
+                } catch (error) {
+                    console.error('Verification failed:', error);
+                }
+            }
+
             // All other code
             let ws = null;
             let src_userid = null;
             let dest_userid = null;
+            let stored_hash = null;
 
             function encrypt(message) {
                 // encryption not yet implemented
@@ -161,6 +203,14 @@
             function decrypt(message) {
                 // encryption not yet implemented
                 return message;
+            }
+
+            function passwordHashWrapper() {
+                hashPassword(document.getElementById('password_writing_box').value).then(hash => {
+                    stored_hash = hash;
+                    document.getElementById('password_writing_box').value = '';
+                    setCookie('stored_hash', stored_hash, 10);
+                });
             }
 
             function display_screen(screen) {
@@ -262,10 +312,14 @@
                 }
             }
 
-            function set_userid() {
+            function set_userid(and_password=true) {
                 src_userid = document.getElementById('userid_writing_box').value;
                 document.getElementById('userid_display').innerText = src_userid;
+                if (and_password) {
+                    passwordHashWrapper();
+                }
                 setCookie('userid', src_userid, 30);
+                document.getElementById('message_history').innerText = '';
                 display_screen('conversation_selection');
             }
 
@@ -337,8 +391,10 @@
                 let userid = getCookie('userid');
                 if (userid) {
                     document.getElementById('userid_writing_box').value = userid;
-                    set_userid();
+                    set_userid(and_password=false);
                 }
+
+                stored_hash = getCookie('stored_hash');
 
                 let last_conversation = getCookie('last_conversation');
                 if (last_conversation) {
@@ -347,10 +403,17 @@
                 }
             }
 
+            function focus_password() {
+                document.getElementById('password_writing_box').focus();
+            }
+
             document.getElementById('server_ip_writing_box').onkeydown = (e) => {
                 check_if_enter(e, open_websocket);
             };
             document.getElementById('userid_writing_box').onkeydown = (e) => {
+                check_if_enter(e, focus_password);
+            };
+            document.getElementById('password_writing_box').onkeydown = (e) => {
                 check_if_enter(e, set_userid);
             };
             document.getElementById('conversation_selection_writing_box').onkeydown = (e) => {
