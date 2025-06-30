@@ -4,6 +4,11 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, intital-scale=1">
         <title>Messaging app</title>
+        <style>
+            .hidden {
+                display: none;
+            }
+        </style>
     </head>
     <body>
         <div id="server_setup">
@@ -24,6 +29,30 @@
             <button onclick="send_message()">Send</button>
         </div>
         <script type="text/javascript">
+            // Cookie handing code, from https://www.w3schools.com/js/js_cookies.asp
+            function setCookie(cname, cvalue, exdays) {
+                const d = new Date();
+                d.setTime(d.getTime() + (exdays * 24 * 60 * 60 * 1000));
+                let expires = "expires="+d.toUTCString();
+                document.cookie = cname + "=" + cvalue + ";" + expires + ";path=/";
+            }
+
+            function getCookie(cname) {
+                let name = cname + "=";
+                let ca = document.cookie.split(';');
+                for(let i = 0; i < ca.length; i++) {
+                    let c = ca[i];
+                    while (c.charAt(0) == ' ') {
+                    c = c.substring(1);
+                    }
+                    if (c.indexOf(name) == 0) {
+                    return c.substring(name.length, c.length);
+                    }
+                }
+                return "";
+            }
+
+            // All other code
             let ws = null;
             let src_userid = null;
             let dest_userid = null;
@@ -67,6 +96,7 @@
                     ws.addEventListener("close", (e) => {
                         setTimeout(open_websocket, 1000, trynum++);
                     });
+                    setCookie('server_ip', host, 365);
                 } catch {
                     setTimeout(open_websocket, 1000, trynum++);
                 }
@@ -74,17 +104,28 @@
 
             function set_userid() {
                 src_userid = document.getElementById('userid_writing_box').value;
+                setCookie('userid', src_userid, 30);
             }
 
             function select_conversation() {
                 dest_userid = document.getElementById('conversation_selection_writing_box').value;
+                setCookie('last_conversation', dest_userid, 30);
             }
 
             function send_message() {
-                if (!ws || !src_userid) {
-                    alert('Please connect to a server, log in and select a conversation.');
+                if (!ws) {
+                    alert('Please connect to a server.');
                     return;
                 }
+                if (!src_userid) {
+                    alert('Please log in.');
+                    return;
+                }
+                if (!dest_userid) {
+                    alert('Please select a recipient.');
+                    return;
+                }
+                
                 let message_json = JSON.stringify({
                     dest_userid: dest_userid,
                     src_userid: src_userid,
@@ -101,6 +142,26 @@
                 }
             }
 
+            function loadSavedUserData() {
+                let server_address = getCookie('server_ip');
+                if (server_address) {
+                    document.getElementById('server_ip_writing_box').value = server_address;
+                    open_websocket();
+                }
+
+                let userid = getCookie('userid');
+                if (userid) {
+                    document.getElementById('userid_writing_box').value = userid;
+                    set_userid();
+                }
+
+                let last_conversation = getCookie('last_conversation');
+                if (last_conversation) {
+                    document.getElementById('conversation_selection_writing_box').value = last_conversation;
+                    select_conversation();
+                }
+            }
+
             document.getElementById('server_ip_writing_box').onkeydown = (e) => {
                 check_if_enter(e, open_websocket);
             };
@@ -113,6 +174,8 @@
             document.getElementById('message_writing_box').onkeydown = (e) => {
                 check_if_enter(e, send_message);
             };
+            
+            loadSavedUserData();
         </script>
     </body>
 </html>
