@@ -14,7 +14,7 @@ While I hope to someday have a lot of different types of clients, for now the on
 The protocol consists of a JSON dictionary containing the following:
 - Destination user
 - Origin user
-- Message type (message, ping)
+- Message type (message, login, connection_successful, error)
 - Message (encrypted) (coming soon)
 - Timestamp
 

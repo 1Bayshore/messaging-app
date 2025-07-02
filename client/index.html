@@ -168,7 +168,7 @@
                         mem: 65536, // Memory cost in KB
                         parallelism: 1, // Number of parallel threads
                         hashLen: 32, // Length of the hash
-                        type: 'argon2id' // Using Argon2id variant
+                        type: argon2.ArgonType.Argon2id // Using Argon2id variant
                     });
                     return hash.encoded; // Return the encoded hash
                 } catch (error) {
@@ -258,8 +258,14 @@
                 
                 let message_data = JSON.parse(data);
 
-                if (message_data['type'] == 'ping') {
+                if (message_data['type'] == 'ping' || message_data['type'] == 'login') {
                     // ping is just to confirm connection, drop it
+                    // login is just to get server's attention, drop it
+                    return;
+                }
+
+                if (message_data['type'] == 'connection_successful') {
+                    display_screen('conversation_selection');
                     return;
                 }
 
@@ -320,7 +326,7 @@
                 }
                 setCookie('userid', src_userid, 30);
                 document.getElementById('message_history').innerText = '';
-                display_screen('conversation_selection');
+                send_message(type="login");
             }
 
             function select_conversation() {
@@ -333,7 +339,6 @@
                     document.getElementsByClassName('from' + dest_userid)[i].classList.remove('hidden');
                 }
                 display_screen('chat');
-                send_message(type="ping");
             }
 
             function send_message(type="message") {
@@ -345,7 +350,7 @@
                     alert('Please log in.');
                     return;
                 }
-                if (!dest_userid) {
+                if (!dest_userid && type != 'login') {
                     alert('Please select a recipient.');
                     return;
                 }
@@ -353,15 +358,21 @@
                 let timestamp =  new Date().toISOString();
                 let encrypted_message;
                 let message_type;
-                if (type == "ping") {
-                    encrypted_message = encrypt('Connected.');
-                    message_type = 'ping';
+                let current_dest_userid;
+                if (type == "login") {
+                    encrypted_message = encrypt(JSON.stringify({
+                        username: src_userid,
+                        pass_hash: stored_hash
+                    }));
+                    message_type = 'login';
+                    current_dest_userid = src_userid;
                 } else {
                     encrypted_message = encrypt(document.getElementById('message_writing_box').value);
                     message_type = 'message';
+                    current_dest_userid = dest_userid;
                 }
                 let message_json = JSON.stringify({
-                    dest_userid: dest_userid,
+                    dest_userid: current_dest_userid,
                     src_userid: src_userid,
                     message: encrypted_message,
                     timestamp: timestamp,
