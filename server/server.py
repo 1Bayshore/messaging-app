@@ -101,9 +101,16 @@ async def forward_message(websocket):
                 if message_type != 'login':
                     # impersonation, drop it
                     continue
-
+                
                 l_data = json.loads(await decrypt_message(message_text))
-                if (l_data['username'] != username) or (l_data['pass_hash'] != hash_obj):
+                if (l_data['username'] != username):
+                    # incorrect login
+                    await send_message(src_user_id, server_address, await encrypt_message('Error: Incorrect username or password'), datetime.datetime.now(datetime.timezone.utc).isoformat(), 'error', single_socket_only=websocket)
+                    continue
+                try:
+                    global hash_obj
+                    ph.verify(hash_obj, l_data['pass_hash'])
+                except argon2.exceptions.VerifyMismatchError:
                     # incorrect login
                     await send_message(src_user_id, server_address, await encrypt_message('Error: Incorrect username or password'), datetime.datetime.now(datetime.timezone.utc).isoformat(), 'error', single_socket_only=websocket)
                     continue
@@ -165,8 +172,8 @@ def login_signup(mode=None, attempt=0):
             return
 
         try:
-            hash_obj = input('Password: ')
-            ph.verify(login_data[username], hash_obj)
+            hash_obj = login_data[username]
+            ph.verify(login_data[username], input('Password: '))
         except argon2.exceptions.VerifyMismatchError:
             print('Incorrect password, please try again.')
             time.sleep(math.exp2(attempt)/4) # wait a little bit before allowing them to try again
