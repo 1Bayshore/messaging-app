@@ -124,8 +124,8 @@ async def forward_message(websocket):
                 # forward the user's messages to their new connection
                 for msg_backup in message_history:
                     if msg_backup['dest_userid'] == src_user_id or msg_backup['src_userid'] == src_user_id:
-                        await send_message(src_user_id, msg_backup['src_userid'], msg_backup['message'], msg_backup['timestamp'], msg_backup['type'], save=False, forwarding_dest_user_id=msg_backup['dest_userid'])
-                await send_message(src_user_id, server_address, await encrypt_message('Connected successfully.'), datetime.datetime.now(datetime.timezone.utc).isoformat(), 'connection_successful')
+                        await send_message(src_user_id, msg_backup['src_userid'], msg_backup['message'], msg_backup['timestamp'], msg_backup['type'], save=False, forwarding_dest_user_id=msg_backup['dest_userid'], single_socket_only=websocket)
+                await send_message(src_user_id, server_address, await encrypt_message('Connected successfully.'), datetime.datetime.now(datetime.timezone.utc).isoformat(), 'connection_successful', single_socket_only=websocket)
 
 
             # forward the message

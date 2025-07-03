@@ -13,6 +13,7 @@
                 font-family: Verdana, Geneva, Tahoma, sans-serif;
                 font-size: 12pt;
                 color: black;
+                overflow: hidden;
             }
 
             input {
@@ -89,6 +90,31 @@
                 width: calc(70% - 8px);
                 z-index: -2;
             }
+
+            #message_history {
+                max-height: calc(100vh - 100px);
+                overflow: auto;
+            }
+
+            #existing_conversation_selection {
+                width: 90%;
+                border-radius: 10px;
+                border: 5px solid white;
+                box-sizing: border-box;
+                overflow: auto;
+                max-height: calc(100vh - 100px);
+            }
+
+            .conversation_button {
+                width: 100%;
+                background-color: lightgrey;
+                border-radius: 0px;
+                border: 0px
+            }
+
+            .conversation_button_selected {
+                background-color: rgb(255, 212, 132);
+            }
         </style>
     </head>
     <body>
@@ -121,6 +147,7 @@
         <div id="conversation_selection" class="hidden">
             <input type="text" id="conversation_selection_writing_box">
             <button onclick="select_conversation()">Select conversation</button>
+            <div id="existing_conversation_selection"></div>
         </div>
         <div id="message_in_out_container">
             <div id="message_history" class="hidden"></div>
@@ -232,13 +259,16 @@
                     return;
                 }
 
+                let conversation_userid;
                 if (message_data['src_userid'] == src_userid) {
                     message_container.classList.add('from' + message_data['dest_userid']);
+                    conversation_userid = message_data['dest_userid'];
                     if (message_data['dest_userid'] != dest_userid) {
                         message_container.classList.add('hidden');
                     }
                 } else {
                     message_container.classList.add('from' + message_data['src_userid']);
+                    conversation_userid = message_data['src_userid'];
                     if (message_data['src_userid'] != dest_userid) {
                         message_container.classList.add('hidden');
                     }
@@ -246,6 +276,34 @@
                 message_container.classList.add('message');
                 message_container.innerText = message_data['src_userid'] + ' (' + message_data['timestamp'] + '): ' + decrypt(message_data['message']);
                 document.getElementById('message_history').appendChild(message_container);
+
+                // if the sender isn't in the conversation list, add them. If they are, then push them up to the top
+                let found = false;
+
+                for (let i = 0; i < document.getElementById('existing_conversation_selection').children.length; i++) {
+                    if (document.getElementById('existing_conversation_selection').children[i].children[0].innerText == conversation_userid) {
+                        //document.getElementById('existing_conversation_selection').removeChild(document.getElementById('existing_conversation_selection').children[i]);
+                        document.getElementById('existing_conversation_selection').insertBefore(document.getElementById('existing_conversation_selection').children[i], document.getElementById('existing_conversation_selection').children[0]);
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    let ele = document.createElement('div');
+                    let b = document.createElement('button');
+                    b.innerText = conversation_userid;
+                    b.onclick = function () {
+                        document.getElementById('conversation_selection_writing_box').value = conversation_userid;
+                        for (let j = 0; j < document.getElementById('existing_conversation_selection').children.length; j++) {
+                            document.getElementById('existing_conversation_selection').children[j].children[0].classList.remove('conversation_button_selected');
+                        }
+                        this.classList.add('conversation_button_selected');
+                        select_conversation();
+                    }
+                    b.classList.add('conversation_button');
+                    ele.appendChild(b);
+                    document.getElementById('existing_conversation_selection').insertBefore(ele, document.getElementById('existing_conversation_selection').children[0]);
+                }
             }
 
             function open_websocket(trynum=0) {
@@ -304,6 +362,7 @@
                     document.getElementsByClassName('from' + dest_userid)[i].classList.remove('hidden');
                 }
                 display_screen('chat');
+                document.getElementById('message_history').scrollTo(0, document.getElementById('message_history').scrollHeight);
             }
 
             function send_message(type="message") {
@@ -346,6 +405,8 @@
                 ws.send(message_json);
                 receive_message(message_json); // this ensures that it appears as sent.
                 document.getElementById('message_writing_box').value = "";
+
+                document.getElementById('message_history').scrollTo(0, document.getElementById('message_history').scrollHeight);
             }
 
             function check_if_enter(e, callnext) {
