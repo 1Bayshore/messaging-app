@@ -185,14 +185,56 @@
             let src_userid = null;
             let dest_userid = null;
             let stored_hash = null;
+            let stored_public_key = null;
+            let stored_private_key = null;
 
-            function encrypt(message) {
-                // encryption not yet implemented
-                return message;
+            // https://stackoverflow.com/a/11058858
+            function str2ab(str) {
+                const buf = new ArrayBuffer(str.length);
+                const bufView = new Uint8Array(buf);
+                for (let i = 0, strLen = str.length; i < strLen; i++) {
+                    bufView[i] = str.charCodeAt(i);
+                }
+                return buf;
+            }
+                
+            function ab2str(buf) {
+                return String.fromCharCode.apply(null, new Uint8Array(buf));
             }
 
-            function decrypt(message) {
-                // encryption not yet implemented
+            function getSpkiDer(spkiPem){
+                const pemHeader = "-----BEGIN PUBLIC KEY-----\n";
+                const pemFooter = "\n-----END PUBLIC KEY-----";
+                var pemContents = spkiPem.substring(pemHeader.length, spkiPem.length - pemFooter.length);
+                var binaryDerString = window.atob(pemContents);
+                return str2ab(binaryDerString); 
+            }
+
+            function getPkcs8Der(pkcs8Pem){
+                const pemHeader = "-----BEGIN RSA PRIVATE KEY-----\n";
+                const pemFooter = "\n-----END RSA PRIVATE KEY-----";
+                var pemContents = pkcs8Pem.substring(pemHeader.length, pkcs8Pem.length - pemFooter.length);
+                var binaryDerString = window.atob(pemContents);
+                return str2ab(binaryDerString); 
+            }
+
+            async function importRSAPublicKey(key) {
+                let helper_step = getSpkiDer(key);
+                return await window.crypto.subtle.importKey('spki', helper_step, {name: 'RSA-OAEP', hash: 'SHA-256'}, true, ['encrypt']);
+            }
+
+            async function importRSAPrivateKey(key) {
+                let helper_step = getPkcs8Der(key);
+                return await window.crypto.subtle.importKey('pkcs8', helper_step, {name: 'RSA-OAEP', hash: 'SHA-256'}, true, ['decrypt']);
+            }
+
+            function encrypt(message) {
+                let encrypted_message = window.crypto.subtle.encrypt({name: 'RSA-OAEP'}, stored_public_key, message);
+                return window.btoa(encrypted_message);
+            }
+
+            function decrypt(encrypted_message) {
+                let message = window.crypto.subtle.decrypt({name: 'RSA-OAEP'}, stored_private_key, window.atob(encrypted_message));
                 return message;
             }
 
@@ -243,7 +285,7 @@
                 document.getElementById('menu_items').classList.toggle('hidden');
             }
 
-            function receive_message(data) {
+            async function receive_message(data) {
                 let message_container = document.createElement('div');
                 
                 let message_data = JSON.parse(data);
@@ -251,6 +293,22 @@
                 if (message_data['type'] == 'ping' || message_data['type'] == 'login') {
                     // ping is just to confirm connection, drop it
                     // login is just to get server's attention, drop it
+                    return;
+                }
+
+                if (message_data['type'] == 'key1') {
+                    // public key received
+                    importRSAPublicKey(message_data['message']).then(key => {
+                        stored_public_key = key;
+                    });
+                    return;
+                }
+
+                if (message_data['type'] == 'key2') {
+                    // private key received
+                    importRSAPrivateKey(message_data['message']).then(key => {
+                        stored_private_key = key;
+                    });
                     return;
                 }
 
@@ -274,7 +332,7 @@
                     }
                 }
                 message_container.classList.add('message');
-                message_container.innerText = message_data['src_userid'] + ' (' + message_data['timestamp'] + '): ' + decrypt(message_data['message']);
+                message_container.innerText = message_data['src_userid'] + ' (' + message_data['timestamp'] + '): ' + await decrypt(message_data['message']);
                 document.getElementById('message_history').appendChild(message_container);
 
                 // if the sender isn't in the conversation list, add them. If they are, then push them up to the top
@@ -365,7 +423,7 @@
                 document.getElementById('message_history').scrollTo(0, document.getElementById('message_history').scrollHeight);
             }
 
-            function send_message(type="message") {
+            async function send_message(type="message") {
                 if (!ws) {
                     alert('Please connect to a server.');
                     return;
@@ -384,14 +442,14 @@
                 let message_type;
                 let current_dest_userid;
                 if (type == "login") {
-                    encrypted_message = encrypt(JSON.stringify({
+                    encrypted_message = JSON.stringify({
                         username: src_userid,
                         pass_hash: stored_hash
-                    }));
+                    });
                     message_type = 'login';
                     current_dest_userid = src_userid;
                 } else {
-                    encrypted_message = encrypt(document.getElementById('message_writing_box').value);
+                    encrypted_message = await encrypt(document.getElementById('message_writing_box').value);
                     message_type = 'message';
                     current_dest_userid = dest_userid;
                 }

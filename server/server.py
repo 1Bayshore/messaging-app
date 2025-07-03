@@ -6,6 +6,10 @@ import datetime
 import argon2
 import time
 import math
+import base64
+
+from Cryptodome.PublicKey import RSA
+from Cryptodome.Cipher import PKCS1_OAEP
 
 server_address = '127.0.0.1'
 is_user_server = True
@@ -18,11 +22,24 @@ user_ids_to_websockets = {}
 message_history = []
 
 async def encrypt_message(message):
-    # XXX encryption not implemented yet
-    return message
+    with open('public_key.pem', 'rb') as f:
+        public_key = RSA.import_key(f.read())
+    
+    cipher = PKCS1_OAEP.new(public_key)
 
-async def decrypt_message(message):
-    # XXX encryption not implemented yet
+    print(message)
+    encrypted_message = str(base64.b64encode(cipher.encrypt(bytes(message, 'utf-8'))), 'utf-8')
+    print(encrypted_message)
+    return encrypted_message
+
+async def decrypt_message(encrypted_message):
+    with open('private_key.pem', 'rb') as f:
+        private_key = RSA.import_key(f.read())
+    
+    cipher = PKCS1_OAEP.new(private_key)
+    print(encrypted_message)
+    message = str(cipher.decrypt(bytes(base64.b64decode(encrypted_message), 'utf-8')), 'utf-8')
+    print(message)
     return message
 
 def save_messages():
@@ -57,7 +74,8 @@ async def send_message(dest_user_id, src_user_id, message_text, timestamp, type=
     # save messages here, so that they aren't lost if the recipiant is offline
     # exception is if the save flag is set to false, for situations when the message is already saved
     # or if the message is a ping or login, which we don't save
-    if save and (type not in ['ping', 'login']):
+    # definitely don't save keys!
+    if save and (type not in ['ping', 'login', 'connection_successful', 'key1', 'key2']):
         message_history.append(message_dict)
     
     if single_socket_only:
@@ -102,7 +120,7 @@ async def forward_message(websocket):
                     # impersonation, drop it
                     continue
                 
-                l_data = json.loads(await decrypt_message(message_text))
+                l_data = json.loads(message_text)
                 if (l_data['username'] != username):
                     # incorrect login
                     await send_message(src_user_id, server_address, await encrypt_message('Error: Incorrect username or password'), datetime.datetime.now(datetime.timezone.utc).isoformat(), 'error', single_socket_only=websocket)
@@ -120,6 +138,14 @@ async def forward_message(websocket):
                     user_ids_to_websockets[src_user_id].append(websocket)
                 except KeyError:
                     user_ids_to_websockets[src_user_id] = [websocket]
+                
+                # if user server, send the keys to the new login
+                if is_user_server:
+                    with open('public_key.pem', 'rb') as f:
+                        await send_message(src_user_id, server_address, str(f.read(), 'utf-8'), datetime.datetime.now(datetime.timezone.utc).isoformat(), 'key1', single_socket_only=websocket)
+                    
+                    with open('private_key.pem', 'rb') as f:
+                        await send_message(src_user_id, server_address, str(f.read(), 'utf-8'), datetime.datetime.now(datetime.timezone.utc).isoformat(), 'key2', single_socket_only=websocket)
 
                 # forward the user's messages to their new connection
                 for msg_backup in message_history:
@@ -159,6 +185,15 @@ def login_signup(mode=None, attempt=0):
         login_data[username] = hash_obj
         with open('login_info.json', 'w') as f:
             f.write(json.dumps(login_data))
+        # generate a public - private key for the user
+        key = RSA.generate(2048)
+        private_key = key.export_key()
+        with open('private_key.pem', 'wb') as f:
+            f.write(private_key)
+        
+        public_key = key.public_key().exportKey()
+        with open('public_key.pem', 'wb') as f:
+            f.write(public_key)
     
     elif log_sign in ['l', 'log in', '1']:
         # log in

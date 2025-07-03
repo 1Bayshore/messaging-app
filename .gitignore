@@ -1,2 +1,5 @@
 server/message_history.json
 server/login_info.json
+server/public_key.pem
+server/private_key.pem
+server/https/*
