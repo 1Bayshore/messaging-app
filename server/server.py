@@ -27,9 +27,7 @@ async def encrypt_message(message):
     
     cipher = PKCS1_OAEP.new(public_key)
 
-    print(message)
     encrypted_message = str(base64.b64encode(cipher.encrypt(bytes(message, 'utf-8'))), 'utf-8')
-    print(encrypted_message)
     return encrypted_message
 
 async def decrypt_message(encrypted_message):
@@ -37,9 +35,7 @@ async def decrypt_message(encrypted_message):
         private_key = RSA.import_key(f.read())
     
     cipher = PKCS1_OAEP.new(private_key)
-    print(encrypted_message)
     message = str(cipher.decrypt(bytes(base64.b64decode(encrypted_message), 'utf-8')), 'utf-8')
-    print(message)
     return message
 
 def save_messages():
